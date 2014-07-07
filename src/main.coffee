@@ -10,15 +10,41 @@ $ ->
   window.paused = false
   window.pauseplay = ->
     window.paused = not window.paused
-    if window.paused is false
-      window.mainLoop = setTimeout(gameLoop, 1000 /60)
-    else
-      clearTimeout(window.mainLoop)
 
   width = canvas.width()
   height = canvas.height()
   window.lines = []
   lines.push([{x: width / 2, y: height / 2}, {x: width, y: height / 2}])
+  # lines.push([{x: 50, y: 250 / 2}, {x: 500, y: 350}])
+
+  window.activeLine = undefined
+  canvas.mousedown( (e) ->
+    if activeLine?
+      activeLine[1].x = e.offsetX
+      activeLine[1].y = e.offsetY
+      lines.push(activeLine)
+      window.activeLine = undefined
+    else
+      window.activeLine = [{x:e.offsetX, y:e.offsetY}, {x:e.offsetX, y:e.offsetY}]
+      console.log activeLine
+    return false
+  )
+  canvas.mouseup( (e) ->
+    if activeLine?
+      activeLine[1].x = e.offsetX
+      activeLine[1].y = e.offsetY
+      if (activeLine[0].x == activeLine[1].x and activeLine[0].y == activeLine[1].y)
+        return
+      lines.push(activeLine)
+      window.activeLine = undefined
+  )
+
+  canvas.mousemove( (e) ->
+    if activeLine?
+      activeLine[1].x = e.offsetX
+      activeLine[1].y = e.offsetY
+  )
+
 
   #letters = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
   letters = ['B', 'A', 'G', 'F', 'E', 'D', 'C']
@@ -26,13 +52,12 @@ $ ->
   orbit = 10
   id = 0
   #for i in [2..6]
-  for i in [6..2]
-    for l in letters
-      note = MIDI.keyToNote[l + i.toString()]
-      dot = new Dot(id, note, orbit, 200000 / (88 - id))
-      dots.push(dot)
-      orbit += Math.floor(dot.radius * 0.9)
-      id += 1
+  for i in [80..45]
+    #note = MIDI.keyToNote[l + i.toString()]
+    dot = new Dot(id, i, orbit, 200000 / (88 - id))
+    dots.push(dot)
+    orbit += Math.floor(dot.radius * 0.9)
+    id += 1
 
   # http://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
   `
@@ -51,10 +76,12 @@ $ ->
   `
 
   hitDetect = (dot, line) ->
-    distToSegment(dot, line[0], line[1]) < 5
+    distToSegment(dot, line[0], line[1]) < dot.radius
 
   window.timer = 0
   update = ->
+    if (paused)
+      return
     MIDI.setVolume(0, 127)
     timer += 1
     if timer is 10
@@ -78,7 +105,6 @@ $ ->
         MIDI.noteOff(0, dot.note, 0)
       else if dot.active is false and hit is true
         dot.active = true
-        console.log "Playing " + dot.note
         MIDI.noteOn(0, dot.note, 127, 0)
 
 
@@ -109,6 +135,12 @@ $ ->
     for line in lines
       ctx.moveTo(line[0].x, line[0].y)
       ctx.lineTo(line[1].x, line[1].y)
+    ctx.stroke()
+
+    ctx.beginPath()
+    if activeLine?
+      ctx.moveTo(activeLine[0].x, activeLine[0].y)
+      ctx.lineTo(activeLine[1].x, activeLine[1].y)
     ctx.stroke()
 
   window.gameLoop = ->
